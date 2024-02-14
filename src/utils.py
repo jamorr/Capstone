@@ -1,11 +1,12 @@
 import datetime
-from typing import TypeAlias
-import pandas as pd
-from sodapy import Socrata
-import pyarrow as pa
-import numpy as np
-import pathlib
 import os
+import pathlib
+from typing import TypeAlias
+
+import numpy as np
+import pandas as pd
+import pyarrow as pa
+from sodapy import Socrata
 
 DateTime: TypeAlias = str | datetime.datetime | datetime.date | np.datetime64
 
