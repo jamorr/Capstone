@@ -13,12 +13,15 @@ DateTime: TypeAlias = str | datetime.datetime | datetime.date | np.datetime64
 # Unauthenticated client only works with public data sets. Note 'None'
 # in place of application token, and no username or password:
 def get_connection(api_key:str|pathlib.Path = pathlib.Path("../api_key.txt")):
-    if isinstance(api_key, str) and os.path.exists(api_key):
+
+    if (isinstance(api_key, str) and os.path.exists(api_key)) \
+        or isinstance(api_key, pathlib.Path):
         try:
             with open(api_key, "r") as f:
                 api_key = f.readline()
         except FileNotFoundError:
             api_key = None
+
 
     return Socrata("data.cityofnewyork.us", api_key, timeout=10000)
 
@@ -38,8 +41,8 @@ def get_data(
     connection:Socrata,
     start_date:DateTime,
     end_date: DateTime,
-    offset:int,
-    size:int
+    size:int=200_000,
+    offset:int=0,
     ):
     query = f"""
     SELECT
@@ -50,8 +53,12 @@ def get_data(
         descriptor,
         status,
         resolution_description,
-        due_date,
         resolution_action_updated_date,
+        due_date,
+        borough,
+        incident_zip,
+        city,
+        bbl,
         latitude,
         longitude
     WHERE
