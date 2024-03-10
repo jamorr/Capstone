@@ -172,12 +172,16 @@ def get_crime_data(
             'crime_close_time',
             'report_date'
         ]
-        # numeric_feats = [
-        #     "latitude",
-        #     "longitude"
-        # ]
+        numeric_feats = [
+            "idx",
+            "latitude",
+            "longitude"
+        ]
         for f in time_feats:
             df[f] = pd.to_datetime(df[f], format = "ISO8601")
+
+        for f in numeric_feats:
+            df[f] = pd.to_numeric(df[f])
     except Exception:
         return df
     # for f in numeric_feats:
