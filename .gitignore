@@ -1,7 +1,5 @@
 api_key.txt
-data/2018_tf.feather
-data/2018.feather
-data/2017_1_200k.feather
+data/
 TC1.mdb
 __pycache__
 
