@@ -1,14 +1,11 @@
 api_key.txt
-~$Preprocessing.pptx
-2017_1_200k.feather
-Preprocessing.pptx
-Project Proposal.pdf
-Project Proposal.pptx
+data/2018_tf.feather
+data/2018.feather
+data/2017_1_200k.feather
 TC1.mdb
 __pycache__
-data/2018.feather
-~$signment3.docx
-~$understanding.pptx
-Assignment3.docx
-understanding.pptx
-data/2018_tf.feather
+
+*.docx
+*.pptx
+*.pdf
+*.pkl
