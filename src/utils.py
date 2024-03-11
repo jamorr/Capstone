@@ -2,11 +2,16 @@ import datetime
 import os
 import pathlib
 from typing import TypeAlias
+from matplotlib import pyplot as plt
+from itertools import chain, combinations
 
 import numpy as np
 import pandas as pd
 import pyarrow as pa
 from sodapy import Socrata
+from statsmodels.tsa.stattools import adfuller
+from statsmodels.stats.diagnostic import acorr_ljungbox
+from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 
 DateTime: TypeAlias = str | datetime.datetime | datetime.date | np.datetime64
 
@@ -217,3 +222,45 @@ def get_crime_codes(connection:Socrata) -> tuple[pd.DataFrame,pd.DataFrame,pd.Da
 
 def load_saved_data():
     return pd.read_feather("../data/2017_1_200k.feather")
+
+def check_stationarity(series, verbose = False):
+    # Copied from https://machinelearningmastery.com/time-series-data-stationary-python/
+
+    result = adfuller(series.values)
+    if verbose:
+        print('ADF Statistic: %f' % result[0])
+        print('p-value: %f' % result[1])
+        print('Critical Values:')
+        for key, value in result[4].items():
+            print('\t%s: %.3f' % (key, value))
+
+    if (result[1] <= 0.05) & (result[4]['5%'] > result[0]):
+        if verbose: print("\u001b[32mStationary\u001b[0m")
+        return True
+    else:
+        if verbose: print("\x1b[31mNon-stationary\x1b[0m")
+        return False
+
+def check_autocorr_ts(target_df:pd.DataFrame, lags:int=24, p_threshold:float=1e-5, plots:bool=True):
+    figures = []
+    for c in target_df.columns:
+        print(f"\n{c[1]}")
+        # stationarity check
+        is_stationary = check_stationarity(target_df[c])
+        print("Stationary" if is_stationary else "Non-stationary")
+        print("Best Lag:",max(list(acorr_ljungbox(target_df[c], lags=lags, auto_lag=True).index)))
+        if plots:
+            f, ax = plt.subplots(nrows=2, ncols=1, figsize=(15, 9))
+            plot_acf(target_df[c],lags=lags, ax=ax[0], zero=False, auto_ylims=True)
+            ax[0].set_title(f'{c[1]} ACF')
+            plot_pacf(target_df[c],lags=lags, ax=ax[1], method='ols', zero=False, auto_ylims=True)
+            ax[1].set_title(f'{c[1]} PACF')
+            figures.append(f)
+    if plots:
+        return figures
+
+def powerset(s):
+    return chain.from_iterable(combinations(s, r) for r in range(len(s)+1))
+
+def make_rounded_time_column(time_col:pd.Series, interval:str = 'H'):
+    return pd.to_datetime(time_col.astype('int64')).dt.floor(interval)
