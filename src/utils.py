@@ -241,10 +241,10 @@ def check_stationarity(series, verbose = False):
         if verbose: print("\x1b[31mNon-stationary\x1b[0m")
         return False
 
-def check_autocorr_ts(target_df:pd.DataFrame, lags:int=24, p_threshold:float=1e-5, plots:bool=True):
+def check_autocorr_ts(target_df:pd.DataFrame, lags:int=24, plots:bool=True):
     figures = []
     for c in target_df.columns:
-        print(f"\n{c[1]}")
+        print(f"\n{c}")
         # stationarity check
         is_stationary = check_stationarity(target_df[c])
         print("Stationary" if is_stationary else "Non-stationary")
@@ -252,9 +252,9 @@ def check_autocorr_ts(target_df:pd.DataFrame, lags:int=24, p_threshold:float=1e-
         if plots:
             f, ax = plt.subplots(nrows=2, ncols=1, figsize=(15, 9))
             plot_acf(target_df[c],lags=lags, ax=ax[0], zero=False, auto_ylims=True)
-            ax[0].set_title(f'{c[1]} ACF')
+            ax[0].set_title(f'{c} ACF')
             plot_pacf(target_df[c],lags=lags, ax=ax[1], method='ols', zero=False, auto_ylims=True)
-            ax[1].set_title(f'{c[1]} PACF')
+            ax[1].set_title(f'{c} PACF')
             figures.append(f)
     if plots:
         return figures
