@@ -170,27 +170,37 @@ def get_crime_data(
     results = connection.get(db_code, content_type="json", query=query)
     df = pd.DataFrame.from_records(results)
     try:
-        time_feats = [
-            'crime_date',
-            'crime_time',
-            'crime_close_date',
-            'crime_close_time',
-            'report_date'
-        ]
+        date_time = {
+            "crime_close_date":[
+                "crime_close_date",
+                "crime_close_time"
+            ],
+            "crime_date":[
+                "crime_date",
+                "crime_time"
+                ],
+            "report_date":"report_date",
+
+        }
+
+        for k, f in date_time.items():
+            if isinstance(f, list):
+                p = df[f[0]]+' '+df[f[1]]
+                df.drop(f, axis='columns', inplace=True)
+            else:
+                p = df[f]
+            df[k] = pd.to_datetime(p, errors='coerce')
+
         numeric_feats = [
-            "idx",
             "latitude",
             "longitude"
         ]
-        for f in time_feats:
-            df[f] = pd.to_datetime(df[f], format = "ISO8601")
 
         for f in numeric_feats:
             df[f] = pd.to_numeric(df[f])
     except Exception:
-        return df
-    # for f in numeric_feats:
-    #     df[f] = pd.to_numeric(df[f])
+        return df.convert_dtypes(dtype_backend='pyarrow')
+
 
     return df.convert_dtypes(dtype_backend="pyarrow")
 
