@@ -9,3 +9,18 @@ Data was sourced from the NYC Open Data website, NOAA, and NCEI. Data was source
 [NYPD Sector Boundaries](https://data.cityofnewyork.us/Public-Safety/NYPD-Sectors/eizi-ujye)   
 [Hourly Weather Data](https://www.ncei.noaa.gov/access/search/data-search/global-hourly?dataTypes=TMP&dataTypes=DEW&dataTypes=AA1&dataTypes=VIS&dataTypes=WND&bbox=41.000,-74.261,40.558,-73.499&pageNum=1&startDate=2010-01-01T00:00:00&endDate=2023-02-01T23:59:59)  
 [Major Storms Data](https://www.ncdc.noaa.gov/stormevents/listevents.jsp?eventType=ALL&beginDate_mm=01&beginDate_dd=01&beginDate_yyyy=2010&endDate_mm=11&endDate_dd=30&endDate_yyyy=2023&county=BRONX%3A5&county=KINGS%3A47&county=NEW%2BYORK%3A61&county=QUEENS%3A81&county=RICHMOND%3A85&hailfilter=0.00&tornfilter=0&windfilter=000&sort=DT&submitbutton=Search&statefips=36%2CNEW+YORK)  
+
+
+## Directory Structure
+├─/data  
+│  ├─/311  
+│  ├─/combined  
+│  ├─/crime  
+│  ├─/nypd  
+│  └─/weather  
+├─/models  
+├─/plots  
+│  └─animations  
+├─/src  
+├─README.MD  
+└─requirements.txt  
