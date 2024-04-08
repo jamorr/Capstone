@@ -9,6 +9,7 @@ Description:
     of lat/lon points and d is number of districts.
 """
 
+import copy
 import datetime
 import multiprocessing as mp
 import pathlib
@@ -83,25 +84,25 @@ def id_sector_precinct(
 def id_sector(
     df:pd.DataFrame,
     sectors:gpd.GeoDataFrame|None = None,
-    date_range:tuple[int,int]|None = None,
-    date_col_name:str|None = 'created_date',
+    # date_range:tuple[int,int]|None = None,
+    # date_col_name:str|None = 'created_date',
     inplace:bool = False):
 
     if sectors is None:
         sectors = load_sectors()
 
-    if date_range:
-        adf:pd.DataFrame = df[(df[date_col_name]>= datetime.date(date_range[0], 1, 1))&(df[date_col_name] < datetime.date(date_range[1], 1, 1))]
-        adf:pd.DataFrame = adf.dropna(how='any',subset=['latitude','longitude'])
-    else:
-        # drop data without any lat/long
-        adf:pd.DataFrame = df.dropna(how='any',subset=['latitude','longitude'])
+    if not inplace:
+        df = copy.deepcopy(df)
+    df.dropna(how='any',subset=['latitude','longitude'], inplace=True)
+
+    # if date_range:
+    #     df = df[(df[date_col_name]>= datetime.date(date_range[0], 1, 1))&(df[date_col_name] < datetime.date(date_range[1], 1, 1))]
     # Create snames list for use in labeling points
     snames:np.ndarray = sectors['SCT_TEXT'].values
     # Build a tree of geometry for faster queries
     tree:STRtree = STRtree(sectors['the_geom'].values)
 
-    sct = _distributed_district_compute(adf, snames, tree, 'sector')
+    sct = _distributed_district_compute(df, snames, tree, 'sector')
 
     if inplace:
         # add computed values to dataframe
@@ -112,7 +113,7 @@ def id_sector(
 
 def id_precinct(
     df:pd.DataFrame,
-    precinct:pd.DataFrame|None,
+    precinct:gpd.GeoDataFrame|None = None,
     sectors:str|None=None,
     date_range:tuple[int,int]|None = None,
     date_col_name:str|None = 'created_date',

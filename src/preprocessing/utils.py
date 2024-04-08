@@ -51,8 +51,7 @@ def get_311_data(
     agency:str='',
     db_code:str="erm2-nwe9"
     ):
-    if agency:
-        agency = f"AND agency={agency}"
+    ag_field = f"AND agency='{agency}'" if agency else ''
 
     query = f"""
     SELECT
@@ -74,7 +73,7 @@ def get_311_data(
     WHERE
         (date_extract_y(created_date)={start_date} OR
         date_extract_y(closed_date)={end_date})
-        {agency}
+        {ag_field}
     LIMIT {size}
     OFFSET {offset}
     """
@@ -93,6 +92,7 @@ def get_311_data(
     for f in time_feats:
         # if df[f].dtype
         try:
+            df[f] = pd.to_datetime(df[f], format = "ISO8601")
             df[f] = df[f].astype("timestamp[ns][pyarrow]")
         except pd.errors.OutOfBoundsDatetime:
             continue
@@ -280,5 +280,8 @@ def check_autocorr_ts(target_df:pd.DataFrame, lags:int=24, plots:bool=True):
 def powerset(s):
     return chain.from_iterable(combinations(s, r) for r in range(len(s)+1))
 
-def make_rounded_time_column(time_col:pd.Series, interval:str = 'H'):
+def make_rounded_time_column_depr(time_col:pd.Series, interval:str = 'H'):
     return pd.to_datetime(time_col.astype('int64')).dt.floor(interval)
+
+def make_rounded_time_column(time_col:pd.Series, interval:str = 'H'):
+    return pd.to_datetime(time_col).dt.floor(interval)
