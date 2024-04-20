@@ -4,6 +4,7 @@ from .utils import (
     get_311_data,
     get_connection,
     get_crime_data,
+    make_rounded_time_column
 )
 from .volume_feature import (
     add_powerset_created,
@@ -39,17 +40,11 @@ resolution_unknown = {
     "Your complaint has been forwarded to the New York Police Department for a non-emergency response. If the police determine the vehicle is illegally parked, they will ticket the vehicle and then you may either contact a private towing company to remove the vehicle or ask your local precinct to contact 'rotation tow'. Any fees charged for towing will have to be paid by the vehicle owner. 311 will have additional information in 8 hours. Please note your service request number for future reference."
 }
 
-def process_crime_data(df_crime:pd.DataFrame, start_date:int, sector_id:bool=True):
-    # print("Converting lat/long dtypes of Crime Data")
-    # df_crime = df_crime.convert_dtypes(dtype_backend='pyarrow')
-    print(df_crime.dtypes)
-    # df_crime[['latitude','longitude']] = df_crime[['latitude','longitude']].astype('float64')
-
+def process_crime_data(df_crime:pd.DataFrame, sector_id:bool=True):
     if sector_id:
         print("Adding sector column to Crime Data...")
         df_crime.dropna(axis=0, how='any', subset=['latitude','longitude'], inplace=True)
         id_sector(df_crime, inplace=True)
-
     return df_crime.convert_dtypes(dtype_backend='pyarrow')
 
 def combine_data_weather(df_311:pd.DataFrame, df_weather:pd.DataFrame):
@@ -61,23 +56,51 @@ def combine_data_weather(df_311:pd.DataFrame, df_weather:pd.DataFrame):
     return df_311
 
 
-def combine_data_NYPD(df_311:pd.DataFrame, df_crime:pd.DataFrame, df_weather:pd.DataFrame):
+def combine_data_NYPD(df_311:pd.DataFrame, df_crime:pd.DataFrame, df_weather:pd.DataFrame, sectors:bool=False):
     print("Preparing crime df for merge...")
-    df_crime.rename({'crime_H':'created_H'}, axis='columns', inplace=True)
-    # get all the counts
-    hourly_crime = df_crime[['created_H','precinct', 'crime_degree','idx']].groupby(['created_H','precinct', 'crime_degree'], observed=False).count().unstack([ 'crime_degree'])
+    if "crime_H" not in df_crime.index:
+       df_crime['created_H'] = make_rounded_time_column(df_crime['report_date']).convert_dtypes(dtype_backend="pyarrow")
+    else:
+        df_crime.rename({'crime_H':'created_H'}, axis='columns', inplace=True)
+    keep_cols = ['created_H', 'crime_degree','precinct','idx', ]
+    if sectors:
+        df_crime['sector'] = pd.Categorical(df_crime['sector'])
+        keep_cols[2] = "sector"
+    else:
+        df_crime['precinct'] = pd.Categorical(df_crime['precinct'].replace('', pd.NA).astype('int64[pyarrow]'))
+
+
+    hourly_crime = df_crime[keep_cols].groupby(keep_cols[:3], observed=False).count().unstack([ 'crime_degree'])
     hourly_crime.columns = hourly_crime.columns.droplevel().rename('')
     hourly_crime.reset_index(inplace=True)
+    num_cols = hourly_crime.select_dtypes(include="number").columns
+    hourly_crime[num_cols] = hourly_crime[num_cols].fillna(0)
+
 
     print("Combining weather data...")
     df_311 = combine_data_weather(df_311, df_weather)
     print("Combining crime data...")
-    df_311['precinct'] = pd.Categorical(df_311['precinct'].replace('', pd.NA).astype('int64[pyarrow]'))
-    df_311 = pd.merge(df_311, hourly_crime, how='left', left_on=['created_H', 'precinct'], right_on=['created_H', 'precinct'],)
-    del hourly_crime, df_crime,
+    if sectors:
+        df_311['sector'] = pd.Categorical(df_311['sector'])
+        df_311 = pd.merge(df_311, hourly_crime, how='left', left_on=['created_H', 'sector'], right_on=['created_H', 'sector'],)
+    else:
+        df_311['precinct'] = pd.Categorical(df_311['precinct'].replace('', pd.NA).astype('int64[pyarrow]'))
+        print("311 dtypes", df_311['precinct'].dtype, df_311['created_H'].dtype, )
+        print("Crime dtypes",hourly_crime['precinct'].dtype, hourly_crime['created_H'].dtype, )
+        df_311 = pd.merge(df_311, hourly_crime, how='left', left_on=['created_H', 'precinct'], right_on=['created_H', 'precinct'],)
+
+    df_311[num_cols] = df_311[num_cols].fillna(0)
     df_311['precinct'] = pd.to_numeric(df_311['precinct']).astype('string[pyarrow]')
 
     return df_311
+
+def add_text_classes(df_311:pd.DataFrame):
+    s1 = {res:"resolved before police" for res in resolved_before_police}
+    s2 = {res:"resolved by police" for res in resolved_by_police}
+    s3 = {res:"resolution unknown" for res in resolution_unknown}
+    s4 = {res:"failed to respond" for res in failed_to_respond}
+    mapper = dict(**s1, **s2, **s3, **s4)
+    df_311['resolution_class'] = df_311["resolution_description"].map(mapper)
 
 def preprocess_311(
     df_311,
@@ -86,7 +109,8 @@ def preprocess_311(
     opened_created_add:list[str]|None=None,
     remove_unclosed:bool=False,
     sectors:bool=True,
-    precincts:bool=True
+    precincts:bool=True,
+    text_classes:bool=True
     ):
     # try:
     print("Checking dates...")
@@ -119,9 +143,8 @@ def preprocess_311(
         add_powerset_created(df_311, opened_created_add, interval)
         add_powerset_open(df_311, opened_created_add, interval)
 
-    # except Exception as e:
-    #     print(e)
-    #     return df_311.convert_dtypes(dtype_backend="pyarrow")
+    if text_classes:
+        add_text_classes(df_311)
 
     return df_311.convert_dtypes(dtype_backend="pyarrow")
 
@@ -153,9 +176,9 @@ def get_preprocessed_data(
     precincts:bool=True
     ):
     if agency == 'NYPD':
-        df_311, df_crime = query_data(start_date, end_date, agency, sectors)
+        df_311, df_crime = query_data(start_date, end_date, agency)
     else:
-        df_311 =  query_data(start_date, end_date, agency, sectors)
+        df_311 =  query_data(start_date, end_date, agency)
     try:
         print("Preprocessing 311 data...")
         df_311 = preprocess_311(df_311, remove_unclosed=remove_unclosed, agency=agency, sectors=sectors, precincts=precincts, opened_created_add=opened_created_add, interval=interval)
@@ -164,8 +187,8 @@ def get_preprocessed_data(
         df_weather = weather_parse(start_date=start_date, end_date=end_date)
         print("Combining data frames")
         if agency == 'NYPD':
-            df_crime = process_crime_data(df_crime, start_date, sectors)
-            df_311 = combine_data_NYPD(df_311, df_crime, df_weather)
+            df_crime = process_crime_data(df_crime, sectors)
+            df_311 = combine_data_NYPD(df_311, df_crime, df_weather, sectors)
         else:
             df_311 = combine_data_weather(df_311, df_weather)
     except Exception as e:

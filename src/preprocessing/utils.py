@@ -52,31 +52,30 @@ def get_311_data(
     db_code:str="erm2-nwe9"
     ):
     ag_field = f"AND agency='{agency}'" if agency else ''
-
-    query = f"""
-    SELECT
-        created_date,
-        closed_date,
-        agency,
-        complaint_type,
-        descriptor,
-        status,
-        resolution_description,
-        resolution_action_updated_date,
-        due_date,
-        borough,
-        incident_zip,
-        city,
-        bbl,
-        latitude,
-        longitude
-    WHERE
-        (date_extract_y(created_date)={start_date} OR
-        date_extract_y(closed_date)={end_date})
-        {ag_field}
-    LIMIT {size}
-    OFFSET {offset}
-    """
+    query = (
+        "SELECT\n"
+            "created_date,\n"
+            "closed_date,\n"
+            "agency,\n"
+            "complaint_type,\n"
+            "descriptor,\n"
+            "status,\n"
+            "resolution_description,\n"
+            "resolution_action_updated_date,\n"
+            "due_date,\n"
+            "borough,\n"
+            # "incident_zip,\n"
+            # "city,\n"
+            # "bbl,\n"
+            "latitude,\n"
+            "longitude\n"
+        "WHERE\n"
+            f"(date_extract_y(created_date)={start_date} OR\n"
+            f"date_extract_y(closed_date)={end_date})\n"
+            f"{ag_field}\n"
+        f"LIMIT {size}\n"
+        f"OFFSET {offset}\n"
+    )
     results = connection.get(db_code, content_type="json", query=query)
     df = pd.DataFrame.from_records(results)
     time_feats = [
@@ -144,37 +143,37 @@ def get_crime_data(
     #     "vic_sex": "D" victim sex
     # },
 
-    query = f"""
-    SELECT
-        cmplnt_num as idx,
-        cmplnt_fr_dt as crime_date,
-        cmplnt_fr_tm as crime_time,
-        cmplnt_to_dt as crime_close_date,
-        cmplnt_to_tm as crime_close_time,
-        rpt_dt as report_date,
-        addr_pct_cd as precinct,
-        latitude,
-        longitude,
-        ky_cd as general_code,
-        pd_cd as specific_code,
-        crm_atpt_cptd_cd as attempted,
-        law_cat_cd as crime_degree,
-        boro_nm as borough,
-        loc_of_occur_desc as relative_loc,
-        prem_typ_desc as loc_description,
-        parks_nm as park_name,
-        housing_psa as housing_code,
-        susp_age_group as suspect_age,
-        susp_race as suspect_race,
-        susp_sex as suspect_sex,
-        vic_age_group as victim_age,
-        vic_race as victim_race,
-        vic_sex as victim_sex
-    WHERE
-        date_extract_y(report_date)={start_date}
-    LIMIT {size}
-    OFFSET {offset}
-    """
+    query = (
+    'SELECT\n'
+        'cmplnt_num as idx,\n'
+        'cmplnt_fr_dt as crime_date,\n'
+        'cmplnt_fr_tm as crime_time,\n'
+        'cmplnt_to_dt as crime_close_date,\n'
+        'cmplnt_to_tm as crime_close_time,\n'
+        'rpt_dt as report_date,\n'
+        'addr_pct_cd as precinct,\n'
+        'latitude,\n'
+        'longitude,\n'
+        # 'ky_cd as general_code,\n'
+        # 'pd_cd as specific_code,\n'
+        'crm_atpt_cptd_cd as attempted,\n'
+        'law_cat_cd as crime_degree,\n'
+        # 'loc_of_occur_desc as relative_loc,\n'
+        # 'prem_typ_desc as loc_description,\n'
+        # 'parks_nm as park_name,\n'
+        # 'housing_psa as housing_code,\n'
+        # 'susp_age_group as suspect_age,\n'
+        # 'susp_race as suspect_race,\n'
+        # 'susp_sex as suspect_sex,\n'
+        # 'vic_age_group as victim_age,\n'
+        # 'vic_race as victim_race,\n'
+        # 'vic_sex as victim_sex\n'
+        'boro_nm as borough\n'
+    'WHERE\n'
+        f'date_extract_y(report_date)={start_date}\n'
+    f'LIMIT {size}\n'
+    f'OFFSET {offset}\n')
+
     results = connection.get(db_code, content_type="json", query=query)
     df = pd.DataFrame.from_records(results)
     try:
