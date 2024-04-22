@@ -19,6 +19,7 @@ def process_categorical(
     sparse_data: bool = False,
     random_state=12,
 ):
+    df.loc[:, categorical_feats].fillna('',inplace=True)
     ohe = OneHotEncoder(drop="first", sparse_output=sparse_data).fit(
         df[categorical_feats]
     )
@@ -36,7 +37,7 @@ def process_categorical(
             columns=ohe.get_feature_names_out(),
             index=df.index,
         ).astype("float32[pyarrow]")
-        df[strata] = df[strata].astype("string[pyarrow]")
+        df.loc[:, strata] = df.loc[:, strata].astype("string[pyarrow]")
     else:
         spdf = df[categorical_feats].astype("category")
 
@@ -46,18 +47,10 @@ def process_categorical(
     if sparse_data is True:
         spdf = spdf.astype(pd.SparseDtype("float", 0))
 
-    spdf_train, spdf_test = train_test_split(
-        spdf,
-        train_size=0.6,
-        test_size=0.2,
-        stratify=spdf[strata],
-        random_state=random_state,
-    )
-
-    return spdf, spdf_train, spdf_test
+    return spdf
 
 
-def strata_threshold_remove(df, strata, drop_strata_threshold=50):
+def strata_threshold_remove(df:pd.DataFrame, strata:list[str], drop_strata_threshold:int=50):
     strata_sizes = (
         df[strata + ["hours_to_complete"]]
         .groupby(strata)
@@ -76,8 +69,9 @@ def strata_threshold_remove(df, strata, drop_strata_threshold=50):
         strata_cols = df[strata]
     # dropped_strata_names
     drop_idxs = strata_cols.isin(set(dropped_strata_names))
-    df = df[~drop_idxs]
+    # df = df.loc[~drop_idxs]
+    # df.(drop_idxs, axis=0, inplace=True)
     print(
-        f"dropped {drop_idxs.sum()} entries from strata below threshold {drop_strata_threshold}"
+        f"Dropped {drop_idxs.sum()} entries from strata below threshold {drop_strata_threshold}"
     )
-    return dropped_strata_names, strata_sizes
+    return dropped_strata_names, strata_sizes, drop_idxs
