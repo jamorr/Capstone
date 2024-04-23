@@ -90,6 +90,7 @@ def prep_data_for_surv_analysis(
     add_datetime_cols: bool,
     seed: int,
     datetime_col: str = "created_H",
+    keep_cols: list[str] = None,
     **kwargs,
 ):
     sdf = df.copy(deep=True)[
@@ -125,7 +126,7 @@ def prep_data_for_surv_analysis(
         sdf,
         train_size=0.8,
         test_size=0.2,
-        stratify=sdf[strata],
+        stratify=sdf[status_col],
         random_state=seed,
     )
     X_train = sdf_train[
@@ -148,6 +149,9 @@ def prep_data_for_surv_analysis(
     y_test = Surv.from_arrays(
         event=sdf_test[status_col].to_numpy(), time=sdf_test[target_col].to_numpy()
     )
+    if keep_cols:
+        X_train = X_train[keep_cols]
+        X_test = X_test[keep_cols]
     return X_train, X_test, y_train, y_test
 
 
