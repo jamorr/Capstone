@@ -1,5 +1,7 @@
 name: capstone
 channels:
+  - sebp
+  - conda-forge
   - defaults
 dependencies:
   - matplotlib
