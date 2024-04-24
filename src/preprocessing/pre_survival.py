@@ -9,7 +9,7 @@ import statsmodels.api as sm
 from lifelines import CoxPHFitter
 from matplotlib import pyplot as plt
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sksurv.util import Surv
 
 
@@ -105,19 +105,20 @@ def prep_data_for_surv_analysis(
     sdf[status_col] = map_resolution_to_int(sdf[status_col])
     sdf = sdf[[c for c in sdf.columns if c not in remove_cols]]
 
+
+    if add_datetime_cols:
+        sdf["month"] = sdf[datetime_col].dt.month.astype("string[pyarrow]")
+        sdf["day_of_week"] = sdf[datetime_col].dt.day_of_week.astype("string[pyarrow]")
+        sdf["hour"] = df[datetime_col].dt.hour.astype("string[pyarrow]")
+    sdf.drop(datetime_col, axis="columns", inplace=True)
     categorical_x = set(sdf.select_dtypes(exclude="number").columns)
-    categorical_x.remove(datetime_col)
+    numeric_x = sdf.select_dtypes(include="number")
     categorical_x = list(categorical_x)
     sdf.loc[:, categorical_x] = sdf.loc[:, categorical_x].fillna("")
     categorical_x = list(set(categorical_x).difference(set(strata)))
 
-    if add_datetime_cols:
-        sdf["month"] = sdf[datetime_col].dt.month
-        sdf["day_of_week"] = sdf[datetime_col].dt.day_of_week
-        sdf["hour"] = df[datetime_col].dt.hour
-    sdf.drop(datetime_col, axis="columns", inplace=True)
-
     sdf = sdf.ffill()
+    # Drop where negative time to complete
     sdf = sdf[sdf[target_col] > 0]
 
     if categorical_x:
@@ -125,7 +126,8 @@ def prep_data_for_surv_analysis(
         sdf, ohe = process_categorical(sdf, categorical_feats=categorical_x, strata=strata, ohe=ohe)
     else:
         ohe = None
-
+    scaler = StandardScaler()
+    sdf[numeric_x] = scaler.fit_transform(sdf[numeric_x])
     sdf_train, sdf_test = train_test_split(
         sdf,
         train_size=0.8,
