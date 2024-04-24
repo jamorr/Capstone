@@ -18,12 +18,13 @@ def process_categorical(
     categorical_feats: list[str],
     strata: list[str],
     sparse_data: bool = False,
-    random_state=12,
+    ohe=None,
 ):
     df.loc[:, categorical_feats].fillna("", inplace=True)
-    ohe = OneHotEncoder(drop="first", sparse_output=sparse_data).fit(
-        df[categorical_feats]
-    )
+    if ohe is None:
+        ohe = OneHotEncoder(drop="first", sparse_output=sparse_data).fit(
+            df[categorical_feats]
+        )
 
     if sparse_data is True:
         spdf = pd.DataFrame.sparse.from_spmatrix(
@@ -48,7 +49,7 @@ def process_categorical(
     if sparse_data is True:
         spdf = spdf.astype(pd.SparseDtype("float", 0))
 
-    return spdf
+    return spdf, ohe
 
 
 def strata_threshold_remove(
@@ -101,7 +102,7 @@ def prep_data_for_surv_analysis(
     sdf = sdf[[c for c in sdf.columns if c not in remove_cols]]
     sdf = sdf.loc[~idxs_to_drop.values]
     # convert status col to boolean
-    sdf[status_col] = map_resolution_to_int(sdf)
+    sdf[status_col] = map_resolution_to_int(sdf[status_col])
     sdf = sdf[[c for c in sdf.columns if c not in remove_cols]]
 
     categorical_x = set(sdf.select_dtypes(exclude="number").columns)
@@ -120,7 +121,10 @@ def prep_data_for_surv_analysis(
     sdf = sdf[sdf[target_col] > 0]
 
     if categorical_x:
-        sdf = process_categorical(sdf, categorical_feats=categorical_x, strata=strata)
+        ohe = kwargs['ohe_obj'] if 'ohe_obj' in kwargs else None
+        sdf, ohe = process_categorical(sdf, categorical_feats=categorical_x, strata=strata, ohe=ohe)
+    else:
+        ohe = None
 
     sdf_train, sdf_test = train_test_split(
         sdf,
@@ -152,10 +156,10 @@ def prep_data_for_surv_analysis(
     if keep_cols:
         X_train = X_train[keep_cols]
         X_test = X_test[keep_cols]
-    return X_train, X_test, y_train, y_test
+    return X_train, X_test, y_train, y_test, ohe
 
 
-def map_resolution_to_int(df: pd.DataFrame):
+def map_resolution_to_int(col: pd.Series):
     mapper = {
         "": 0,
         "failed to respond": 0,
@@ -163,4 +167,4 @@ def map_resolution_to_int(df: pd.DataFrame):
         "resolved before police": 1,
         "resolved by police": 1,
     }
-    return df["resolution_class"].map(mapper)
+    return col.map(mapper)
