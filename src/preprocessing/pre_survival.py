@@ -1,13 +1,6 @@
 import datetime
-import pathlib
 
-import joblib
-import numpy as np
 import pandas as pd
-import seaborn as sns
-import statsmodels.api as sm
-from lifelines import CoxPHFitter
-from matplotlib import pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sksurv.util import Surv
@@ -25,6 +18,7 @@ def process_categorical(
         ohe = OneHotEncoder(drop="first", sparse_output=sparse_data).fit(
             df[categorical_feats]
         )
+    categorical_feats = ohe.feature_names_in_
 
     if sparse_data is True:
         spdf = pd.DataFrame.sparse.from_spmatrix(
@@ -112,10 +106,10 @@ def prep_data_for_surv_analysis(
         sdf["hour"] = df[datetime_col].dt.hour.astype("string[pyarrow]")
     sdf.drop(datetime_col, axis="columns", inplace=True)
     categorical_x = set(sdf.select_dtypes(exclude="number").columns)
-    numeric_x = sdf.select_dtypes(include="number")
     categorical_x = list(categorical_x)
     sdf.loc[:, categorical_x] = sdf.loc[:, categorical_x].fillna("")
     categorical_x = list(set(categorical_x).difference(set(strata)))
+    numeric_x = list(set(sdf.select_dtypes(include="number").columns).difference(set(strata+[target_col, status_col])))
 
     sdf = sdf.ffill()
     # Drop where negative time to complete
@@ -127,7 +121,12 @@ def prep_data_for_surv_analysis(
     else:
         ohe = None
     scaler = StandardScaler()
-    sdf[numeric_x] = scaler.fit_transform(sdf[numeric_x])
+    scaler.fit(sdf[numeric_x])
+    if 'scaler_obj' in kwargs:
+        scaler.mean_ = kwargs['scaler_obj'].mean_
+        scaler.scale = kwargs['scaler_obj'].scale_
+
+    sdf[numeric_x] = scaler.transform(sdf[numeric_x])
     sdf_train, sdf_test = train_test_split(
         sdf,
         train_size=0.8,
@@ -156,9 +155,9 @@ def prep_data_for_surv_analysis(
         event=sdf_test[status_col].to_numpy(), time=sdf_test[target_col].to_numpy()
     )
     if keep_cols:
-        X_train = X_train[keep_cols]
-        X_test = X_test[keep_cols]
-    return X_train, X_test, y_train, y_test, ohe
+        X_train = X_train[keep_cols["keep_cols"]]
+        X_test = X_test[keep_cols["keep_cols"]]
+    return X_train, X_test, y_train, y_test, ohe, scaler
 
 
 def map_resolution_to_int(col: pd.Series):
