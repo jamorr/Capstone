@@ -102,25 +102,45 @@ def explode_weather(df: pd.DataFrame):
 
 
 def weather_parse(
-    weather_dir=pathlib.Path("../data/weather"), start_date=None, end_date=None
+    weather_dir:pathlib.Path, start_date:int|None=None, end_date:int|None=None
 ):
-    print("Reading weather data...")
-    temp = pd.read_csv(
-        weather_dir / "hourly_temp_laguardia.csv", dtype_backend="pyarrow"
-    )
     if isinstance(start_date, int):
         start_date = datetime.date(start_date, 1, 1)
     if isinstance(end_date, int):
         end_date = datetime.date(end_date, 1, 1)
-    # all data subjected to quality control since no data in category V01
-    # Exclude Daily/Monthly summary reports
-    temp = temp[~temp["REPORT_TYPE"].isin(["SOD  ", "SOM  "])]
-    temp["DATE"] = pd.to_datetime(temp["DATE"])
-    temp.set_index("DATE", inplace=True)
-    weather_df = explode_weather(temp)
-    del temp
+    print("Reading weather data...")
+    try:
+        weather_df = pd.read_parquet(weather_dir/"unprocessed")
+        assert len(weather_df) != 0
+
+    except (FileNotFoundError, AssertionError):
+        temp = pd.read_csv(
+            weather_dir / "hourly_temp_laguardia.csv", dtype_backend="pyarrow"
+        )
+        print("Processing raw weather data...")
+
+        # all data subjected to quality control since no data in category V01
+        # Exclude Daily/Monthly summary reports
+        temp = temp[~temp["REPORT_TYPE"].isin(["SOD  ", "SOM  "])]
+        temp["DATE"] = pd.to_datetime(temp["DATE"])
+        temp.set_index("DATE", inplace=True)
+        weather_df = explode_weather(temp)
+        del temp
     if start_date is not None:
         weather_df = weather_df[weather_df["DATE"] >= start_date]
     if end_date is not None:
         weather_df = weather_df[weather_df["DATE"] < end_date]
     return weather_df
+
+
+if __name__ == "__main__":
+    root = pathlib.Path(__file__).parents[2]
+    weather_dir = root/"data"/"weather"
+    # df =  temp = pd.read_csv(
+    #         weather_dir / "hourly_temp_laguardia.csv", dtype_backend="pyarrow"
+    # )
+    # pre = explode_precip(df)
+    # print(pre)
+
+    df = weather_parse(weather_dir)
+    print(df.head(5))

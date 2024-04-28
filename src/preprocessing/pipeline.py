@@ -11,7 +11,9 @@ from .volume_feature import (
     add_powerset_open,
 )
 from .weather_parse import weather_parse
+# from logging import Logger
 
+# logger = Logger("pipe logger")
 # resolution was completed by police or determined to be unnecessary by police
 resolved_by_police = {
     'The Police Department responded to the complaint and took action to fix the condition.',
