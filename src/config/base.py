@@ -30,7 +30,6 @@ class SurvParams:
             "closed_date",
             "sector",
             "due_date",
-            "created",
             "date_H",
             # "precinct",
             # 'created',

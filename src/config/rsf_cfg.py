@@ -6,3 +6,4 @@ class RSFParams(SurvParams):
     max_depth: int = 3
     min_samples_leaf: int = 10
     n_estimators: int = 50
+    ohe:bool = False

@@ -4,9 +4,10 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sksurv.util import Surv
+from sksurv.column import categorical_to_numeric
 
 
-def process_categorical(
+def ohe_categorical(
     df: pd.DataFrame,
     categorical_feats: list[str],
     strata: list[str],
@@ -44,6 +45,12 @@ def process_categorical(
         spdf = spdf.astype(pd.SparseDtype("float", 0))
 
     return spdf, ohe
+
+
+def num_encode_categorical(df: pd.DataFrame, categorical_feats: list[str]):
+    for feat in categorical_feats:
+        df[feat] = pd.Categorical(df[feat])
+        df[feat] = categorical_to_numeric(df[feat])
 
 
 def strata_threshold_remove(
@@ -97,34 +104,45 @@ def prep_data_for_surv_analysis(
     sdf = sdf.loc[~idxs_to_drop.values]
     # convert status col to boolean
     sdf[status_col] = map_resolution_to_int(sdf[status_col])
-    sdf = sdf[[c for c in sdf.columns if c not in remove_cols]]
-
+    sdf: pd.DataFrame = sdf[[c for c in sdf.columns if c not in remove_cols]]
 
     if add_datetime_cols:
         sdf["month"] = sdf[datetime_col].dt.month.astype("string[pyarrow]")
         sdf["day_of_week"] = sdf[datetime_col].dt.day_of_week.astype("string[pyarrow]")
         sdf["hour"] = df[datetime_col].dt.hour.astype("string[pyarrow]")
     sdf.drop(datetime_col, axis="columns", inplace=True)
-    categorical_x = set(sdf.select_dtypes(exclude="number").columns)
+    categorical_x = set(sdf.select_dtypes(exclude=["float", "bool"]).columns)
     categorical_x = list(categorical_x)
     sdf.loc[:, categorical_x] = sdf.loc[:, categorical_x].fillna("")
     categorical_x = list(set(categorical_x).difference(set(strata)))
-    numeric_x = list(set(sdf.select_dtypes(include="number").columns).difference(set(strata+[target_col, status_col])))
+    numeric_x = list(
+        set(sdf.select_dtypes(include="float").columns).difference(
+            set(strata + [target_col, status_col])
+        )
+    )
 
     sdf = sdf.ffill()
     # Drop where negative time to complete
     sdf = sdf[sdf[target_col] > 0]
 
-    if categorical_x:
-        ohe = kwargs['ohe_obj'] if 'ohe_obj' in kwargs else None
-        sdf, ohe = process_categorical(sdf, categorical_feats=categorical_x, strata=strata, ohe=ohe)
+    if categorical_x and kwargs["ohe"]:
+        try:
+            ohe = kwargs["ohe_obj"]
+        except KeyError:
+            ohe = None
+        sdf, ohe = ohe_categorical(
+            sdf, categorical_feats=categorical_x, strata=strata, ohe=ohe
+        )
+    elif categorical_x:
+        num_encode_categorical(sdf, categorical_x)
+        ohe = None
     else:
         ohe = None
     scaler = StandardScaler()
     scaler.fit(sdf[numeric_x])
-    if 'scaler_obj' in kwargs:
-        scaler.mean_ = kwargs['scaler_obj'].mean_
-        scaler.scale = kwargs['scaler_obj'].scale_
+    if "scaler_obj" in kwargs:
+        scaler.mean_ = kwargs["scaler_obj"].mean_
+        scaler.scale = kwargs["scaler_obj"].scale_
 
     sdf[numeric_x] = scaler.transform(sdf[numeric_x])
     sdf_train, sdf_test = train_test_split(

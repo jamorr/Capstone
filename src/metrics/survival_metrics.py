@@ -43,7 +43,7 @@ def predict_surv_exp_med(
 ):
     pm = pe = None
     mapper = pd.Series(sf.unique_times_)
-    for i in range(0, X_test.shape[0], chunk_size):
+    for i in tqdm(range(0, X_test.shape[0], chunk_size)):
         surv = sf.predict_survival_function(
             X_test[i : i + chunk_size], return_array=True
         )
@@ -172,6 +172,21 @@ def plot_cda(
     fig.set_size_inches(12, 6)
     fig.savefig(save_path/f"{model_name}_cda_total.png", transparent=True)
     return auc, mean_auc
+
+def plot_alphas(alphas, mean, std, best, save_path):
+
+    fig, ax = plt.subplots(figsize=(9, 6))
+    ax:Axes
+    ax.plot(alphas, mean)
+    ax.fill_between(alphas, mean - std, mean + std, alpha=0.15)
+    ax.set_xscale("log")
+    ax.set_ylabel("Concordance index")
+    ax.set_xlabel("Alpha")
+    ax.axvline(best, c="C1")
+    ax.axhline(0.5, color="grey", linestyle="--")
+    ax.grid(True)
+    ax.set_title("Concordance Index by Alpha")
+    fig.savefig(save_path/"alphas.png",transparent=True)
 
 
 def get_cda_by_var(X_test, y_train, y_test, times, do_concord):
